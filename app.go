@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -32,12 +35,14 @@ var cert string
 var key string
 var port string
 var name string
+var clientCA string
 
 func init() {
 	flag.StringVar(&cert, "cert", "", "give me a certificate")
 	flag.StringVar(&key, "key", "", "give me a key")
 	flag.StringVar(&port, "port", "80", "give me a port number")
 	flag.StringVar(&name, "name", os.Getenv("WHOAMI_NAME"), "give me a name")
+	flag.StringVar(&clientCA, "client-ca", "", "give me a CA to require and verify client certs")
 }
 
 var upgrader = websocket.Upgrader{
@@ -57,10 +62,29 @@ func main() {
 
 	fmt.Println("Starting up on port " + port)
 
+	server := &http.Server{Addr: ":" + port}
+
 	if len(cert) > 0 && len(key) > 0 {
-		log.Fatal(http.ListenAndServeTLS(":"+port, cert, key, nil))
+
+		if len(clientCA) > 0 {
+			clientCACert, err := ioutil.ReadFile(clientCA)
+			if err != nil {
+				log.Fatalf("Unable to load client CA: %v", err)
+			}
+
+			pool := x509.NewCertPool()
+			pool.AppendCertsFromPEM(clientCACert)
+
+			server.TLSConfig = &tls.Config{
+				ClientCAs:  pool,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+			}
+		}
+
+		log.Fatal(server.ListenAndServeTLS(cert, key))
 	}
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+
+	log.Fatal(server.ListenAndServe())
 }
 
 func benchHandler(w http.ResponseWriter, _ *http.Request) {

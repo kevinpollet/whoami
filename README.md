@@ -24,6 +24,7 @@ Tiny Go webserver that prints os information and HTTP request to output
 - `key`: give me a key.
 - `port`: give me a port number. (default: 80)
 - `name`: give me a name. (it can be also defined with `WHOAMI_NAME` environment variable)
+- `client-ca`: give me a CA to require and verify client certs.
 
 ## Examples
 
